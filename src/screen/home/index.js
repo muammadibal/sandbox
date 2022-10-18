@@ -1,30 +1,23 @@
-import {
-  Alert,
-  FlatList,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
 import React, {useEffect, useState} from 'react';
-import {UltimateListView} from '@bang88/react-native-ultimate-listview';
+import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
+import {PanGestureHandler} from 'react-native-gesture-handler';
 import Animated, {
+  interpolate,
+  useAnimatedGestureHandler,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
-  withTiming,
+  withDelay,
+  withSpring,
 } from 'react-native-reanimated';
-import {
-  Directions,
-  FlingGestureHandler,
-  Gesture,
-  GestureDetector,
-  State,
-} from 'react-native-gesture-handler';
+import {runOnJS} from 'react-native-reanimated/lib/reanimated2/core';
 const END_POSITION = 200;
 const Home = () => {
   const refScroll = React.createRef();
-  const position = useSharedValue(-100);
+  const scroll = useSharedValue(true);
+  const position = useSharedValue(0);
+  const [enabledScroll, setEnabledScroll] = useState(true);
   const [layout, setLayout] = useState('list');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,53 +43,99 @@ const Home = () => {
     }, 2000);
   };
 
-  // const onGestureEvent = Gesture.Pan()
-  //   .onUpdate(e => {
-  //     position.value = e.translationX;
-  //   })
-  //   .onEnd(e => {
-  //   });
+  const onGestureEvent = useAnimatedGestureHandler({
+    onStart: (_, ctx) => {
+      ctx.startY = position.value;
+    },
+    onActive: (event, ctx) => {
+      if (event.translationY > 1 && event.translationY <= 150) {
+        runOnJS(setEnabledScroll)(false);
+        position.value = ctx.startY + event.translationY;
+      }
+    },
+    onEnd: (event, _) => {
+      if (event.translationY > 0) {
+        position.value = withDelay(3000, withSpring(0));
+      }
+      runOnJS(setEnabledScroll)(true);
+    },
+  });
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{translateY: position.value}],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{translateY: position.value}],
+    };
+  });
+
+  const indicatorStyle = useAnimatedStyle(() => {
+    const scale = interpolate(position.value, [0, 80], [0, 1]);
+    const rotate = interpolate(position.value, [0, 80], [0, 360]);
+    const translateY = interpolate(position.value, [0, 80], [-100, -50]);
+    return {
+      transform: [{translateY}, {rotate: `${rotate}deg`}, {scale: scale}],
+    };
+  });
+
+  const indicatorTextStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(position.value, [0, 80], [0, 1]);
+    const translateY = interpolate(position.value, [0, 80], [-100, 0]);
+    return {
+      // opacity: 10,
+      transform: [{translateY}],
+    };
+  });
 
   return (
-    <View>
+    <View style={{flex: 1}}>
       <Animated.View
         style={[
           {
-            height: 100,
+            height: 150,
             backgroundColor: 'red',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            justifyContent: 'center',
+            alignItems: 'center',
           },
-          animatedStyle,
-        ]}
-      />
-      <Animated.FlatList
-        onScrollBeginDrag={e => {
-          console.log('onScrollBeginDrag', e.nativeEvent.contentOffset.y);
-          if (e.nativeEvent.contentOffset.y === 0) {
-            position.value = withTiming(100, {duration: 10});
-            setTimeout(() => {
-              position.value = withTiming(-100, {duration: 10});
-            }, 2000);
-          }
-        }}
-        onStartShouldSetResponder={e => {
-          console.log('onStartShouldSetResponder', e.nativeEvent.pageY);
-        }}
-        onScroll={e => {
-          console.log('onScroll', e.nativeEvent.contentOffset.y);
-        }}
-        onScrollToTop={e => {
-          console.log('onScrollToTop', e.nativeEvent.contentOffset.y);
-        }}
-        ref={refScroll}
-        data={Array(50).fill('')}
-        renderItem={({item, index}) => {
-          return <Text>{index}</Text>;
-        }}
-      />
+        ]}>
+        <Animated.View
+          style={[
+            indicatorStyle,
+            {
+              width: 30,
+              height: 30,
+              backgroundColor: 'green',
+            },
+          ]}
+        />
+        <Animated.Text style={indicatorTextStyle}>Loading...</Animated.Text>
+      </Animated.View>
+      <PanGestureHandler
+        enabled={!enabledScroll}
+        simultaneousHandlers={refScroll}
+        onGestureEvent={onGestureEvent}>
+        <Animated.View
+          style={[{flex: 1, backgroundColor: 'white'}, animatedStyle]}>
+          <Animated.FlatList
+            ref={refScroll}
+            onScrollBeginDrag={e => {
+              if (e.nativeEvent.contentOffset.y <= 0) {
+                setEnabledScroll(false);
+              } else {
+                setEnabledScroll(true);
+              }
+            }}
+            scrollEnabled={enabledScroll}
+            scrollEventThrottle={16}
+            data={Array(100).fill('')}
+            renderItem={({item, index}) => {
+              return <Text>{index}</Text>;
+            }}
+          />
+        </Animated.View>
+      </PanGestureHandler>
 
       {/* <UltimateListView
         onFetch={onFetch}
