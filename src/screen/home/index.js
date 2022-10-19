@@ -7,6 +7,7 @@ import {
   View,
   Dimensions,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import {PanGestureHandler} from 'react-native-gesture-handler';
 import Animated, {
@@ -30,26 +31,6 @@ let datas = [
     imageUrl:
       'https://images.unsplash.com/photo-1661961112134-fbce0fdf3d99?ixlib=rb-4.0.3&ixid=MnwxMjA3fDF8MHxlZGl0b3JpYWwtZmVlZHwxfHx8ZW58MHx8fHw%3D&auto=format&fit=crop&w=500&q=60',
   },
-  {
-    imageUrl:
-      'https://images.unsplash.com/photo-1666090257483-32f8b567424b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHwyfHx8ZW58MHx8fHw%3D&auto=format&fit=crop&w=500&q=60',
-  },
-  {
-    imageUrl:
-      'https://images.unsplash.com/photo-1666058091341-42486f239ebc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHwzfHx8ZW58MHx8fHw%3D&auto=format&fit=crop&w=500&q=60',
-  },
-  {
-    imageUrl:
-      'https://images.unsplash.com/photo-1666065988253-3ad95ca4404f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHwxMHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=60',
-  },
-  {
-    imageUrl:
-      'https://images.unsplash.com/photo-1666094288098-c067a55c8e9a?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHw4fHx8ZW58MHx8fHw%3D&auto=format&fit=crop&w=500&q=60',
-  },
-  {
-    imageUrl:
-      'https://images.unsplash.com/photo-1664575600796-ffa828c5cb6e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDF8MHxlZGl0b3JpYWwtZmVlZHwxMXx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=60',
-  },
 ];
 
 const Home = () => {
@@ -57,7 +38,7 @@ const Home = () => {
   const scroll = useSharedValue(true);
   const position = useSharedValue(0);
   const [enabledScroll, setEnabledScroll] = useState(true);
-  const [listData, setListData] = useState([]);
+  const [listData, setListData] = useState(datas);
   const [layoutHeight, setLayoutHeight] = useState(0);
   const [loadMore, setLoadMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,10 +56,11 @@ const Home = () => {
   };
 
   const onRefresh = () => {
-    setRefreshing(true);
+    setLayoutHeight(0);
+    setListData([]);
     setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
+      setListData(datas);
+    }, 1000);
   };
 
   const onGestureEvent = useAnimatedGestureHandler({
@@ -94,15 +76,20 @@ const Home = () => {
       if (event.translationY > 100 && event.translationY < 130) {
         position.value = withSpring(130);
         position.value = withDelay(3000, withSpring(0));
+        runOnJS(onRefresh)();
         // withDelay(3000, runOnJS(setRepeatRotate)(false));
       } else if (event.translationY > 130) {
         position.value = withSpring(130);
         position.value = withDelay(3000, withSpring(0));
+        runOnJS(onRefresh)();
         // withDelay(3000, runOnJS(setRepeatRotate)(false));
       } else {
         position.value = withSpring(0);
       }
       runOnJS(setEnabledScroll)(true);
+      scrollTo(refScroll, 0, 1, true);
+    },
+    onFinish: (e, _) => {
       scrollTo(refScroll, 0, 1, true);
     },
     onCancel: (e, _) => {
@@ -178,113 +165,170 @@ const Home = () => {
 
   return (
     <View style={{flex: 1}}>
-      <View
-        style={{
-          height: 60,
-          backgroundColor: 'white',
-          zIndex: 10,
-          justifyContent: 'center',
-          paddingHorizontal: 16,
-        }}>
-        <TouchableOpacity
-          onPress={() => {
-            refScroll?.current?.scrollToOffset({animated: true, offset: 1});
+      <ScrollView
+        horizontal
+        pagingEnabled
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}>
+        <View
+          style={{
+            width,
+            height,
+            backgroundColor: 'black',
+            // position: 'relative',
           }}>
-          <Text style={{fontSize: 22, fontWeight: 'bold'}}>Instagram</Text>
-        </TouchableOpacity>
-      </View>
-      <Animated.View
-        style={[
-          animatedRefreshContainerStyle,
-          {
-            backgroundColor: '#eaeaea',
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: 150,
-          },
-        ]}>
-        <Animated.View
-          style={[
-            indicatorStyle,
-            {
-              width: 30,
-              height: 30,
-              backgroundColor: 'green',
-              borderRadius: 30 / 3,
-            },
-          ]}
-        />
-        <Animated.Text style={[indicatorTextStyle, {color: 'black'}]}>
-          Loading...
-        </Animated.Text>
-      </Animated.View>
-      <PanGestureHandler
-        enabled={!enabledScroll}
-        simultaneousHandlers={refScroll}
-        onGestureEvent={onGestureEvent}>
-        <Animated.View
-          style={[{flex: 1, backgroundColor: 'white'}, animatedStyle]}>
-          <Animated.FlatList
-            ref={refScroll}
-            onLayout={e => {
-              if (e.nativeEvent.layout.height <= height - 150) {
-                setEnabledScroll(false);
-                setLayoutHeight(e.nativeEvent.layout.height);
-              }
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 130,
+              right: width / 2 - 30,
+              // left: width / 2 - 40,
+              width: 60,
+              height: 60,
+              borderRadius: 60,
+              backgroundColor: 'white',
             }}
-            onScrollBeginDrag={e => {
-              if (e.nativeEvent.contentOffset.y > 0) {
-                return setEnabledScroll(true);
-              }
-
-              setEnabledScroll(false);
-            }}
-            onScroll={e => {
-              if (e.nativeEvent.contentOffset.y > 0) {
-                setLoadMore(true);
-                return setEnabledScroll(true);
-              }
-              setEnabledScroll(false);
-            }}
-            scrollEnabled={enabledScroll}
-            scrollEventThrottle={16}
-            data={datas} //Array(100).fill('')}
-            renderItem={({item, index}) => {
-              return (
-                <View>
-                  <Image
-                    source={{uri: item?.imageUrl}}
-                    style={{width: width, height: 400}}
-                  />
-                  <Text>{index}</Text>
-                </View>
-              );
-            }}
-            onEndReached={() => {
-              setTimeout(() => {
-                setLoadMore(false);
-              }, 3000);
-            }}
-            onEndReachedThreshold={0.1}
-            ListFooterComponent={
-              loadMore && (
-                <View
-                  style={{
-                    height: 50,
-                    justifyContent: 'center',
-                  }}>
-                  <ActivityIndicator size="large" />
-                </View>
-              )
-            }
           />
-        </Animated.View>
-      </PanGestureHandler>
+        </View>
+        <View style={{flex: 1}}>
+          <View
+            style={{
+              height: 60,
+              backgroundColor: 'white',
+              zIndex: 10,
+              justifyContent: 'center',
+              paddingHorizontal: 16,
+            }}>
+            <TouchableOpacity
+              onPress={() => {
+                refScroll?.current?.scrollToOffset({animated: true, offset: 1});
+              }}>
+              <Text style={{fontSize: 22, fontWeight: 'bold'}}>Instagram</Text>
+            </TouchableOpacity>
+          </View>
+          <Animated.View
+            style={[
+              animatedRefreshContainerStyle,
+              {
+                backgroundColor: '#eaeaea',
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: 150,
+              },
+            ]}>
+            <Animated.View
+              style={[
+                indicatorStyle,
+                {
+                  width: 30,
+                  height: 30,
+                  backgroundColor: 'green',
+                  borderRadius: 30 / 3,
+                },
+              ]}
+            />
+            <Animated.Text style={[indicatorTextStyle, {color: 'black'}]}>
+              Loading...
+            </Animated.Text>
+          </Animated.View>
 
-      {/* <UltimateListView
+          <PanGestureHandler
+            enabled={!enabledScroll}
+            simultaneousHandlers={refScroll}
+            onGestureEvent={onGestureEvent}>
+            <Animated.View
+              style={[{flex: 1, backgroundColor: 'white'}, animatedStyle]}>
+              <Animated.FlatList
+                ref={refScroll}
+                onScrollBeginDrag={e => {
+                  if (e.nativeEvent.contentOffset.y > 0) {
+                    return setEnabledScroll(true);
+                  }
+
+                  setEnabledScroll(false);
+                }}
+                onScroll={e => {
+                  if (e.nativeEvent.contentOffset.y > 0) {
+                    setLoadMore(true);
+                    return setEnabledScroll(true);
+                  }
+                  setEnabledScroll(false);
+                }}
+                scrollEnabled={enabledScroll}
+                scrollEventThrottle={16}
+                data={listData} //Array(100).fill('')}
+                renderItem={({item, index}) => {
+                  return (
+                    <View
+                      onLayout={e => {
+                        if (layoutHeight < height - 150) {
+                          setLayoutHeight(
+                            layoutHeight + e.nativeEvent.layout.height,
+                          );
+                        }
+                      }}>
+                      <Image
+                        source={{uri: item?.imageUrl}}
+                        style={{width: width, height: 400}}
+                      />
+                      <Text>{index}</Text>
+                    </View>
+                  );
+                }}
+                onEndReached={() => {
+                  setTimeout(() => {
+                    setListData([
+                      ...listData,
+                      {
+                        imageUrl:
+                          'https://images.unsplash.com/photo-1666090257483-32f8b567424b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHwyfHx8ZW58MHx8fHw%3D&auto=format&fit=crop&w=500&q=60',
+                      },
+                      {
+                        imageUrl:
+                          'https://images.unsplash.com/photo-1666058091341-42486f239ebc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHwzfHx8ZW58MHx8fHw%3D&auto=format&fit=crop&w=500&q=60',
+                      },
+                      {
+                        imageUrl:
+                          'https://images.unsplash.com/photo-1666065988253-3ad95ca4404f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHwxMHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=60',
+                      },
+                      {
+                        imageUrl:
+                          'https://images.unsplash.com/photo-1666094288098-c067a55c8e9a?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxlZGl0b3JpYWwtZmVlZHw4fHx8ZW58MHx8fHw%3D&auto=format&fit=crop&w=500&q=60',
+                      },
+                      {
+                        imageUrl:
+                          'https://images.unsplash.com/photo-1664575600796-ffa828c5cb6e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDF8MHxlZGl0b3JpYWwtZmVlZHwxMXx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=60',
+                      },
+                    ]);
+                    setLoadMore(false);
+                  }, 3000);
+                }}
+                onEndReachedThreshold={0.1}
+                ListFooterComponent={
+                  layoutHeight > height - 150
+                    ? loadMore && (
+                        <View
+                          style={{
+                            height: 50,
+                            justifyContent: 'center',
+                          }}>
+                          <ActivityIndicator size="large" />
+                        </View>
+                      )
+                    : null
+                }
+              />
+            </Animated.View>
+          </PanGestureHandler>
+
+          <View
+            style={{height: 60, width, backgroundColor: 'white', elevation: 5}}
+          />
+        </View>
+        {/* <UltimateListView
         onFetch={onFetch}
         key={layout}
         keyExtractor={(item, index) => `${index} - ${item}`}
@@ -308,6 +352,21 @@ const Home = () => {
         displayDate
         // arrowImageStyle={{width: 20, height: 20, resizeMode: 'contain'}}
       /> */}
+        <View style={{width, height, backgroundColor: 'yellow'}}>
+          <View
+            style={{
+              height: 60,
+              backgroundColor: 'white',
+              zIndex: 10,
+              justifyContent: 'center',
+              paddingHorizontal: 16,
+            }}>
+            <TouchableOpacity onPress={() => {}}>
+              <Text style={{fontSize: 22, fontWeight: 'bold'}}>Messages</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };
