@@ -4,6 +4,7 @@ import Animated, {
   block,
   cancelAnimation,
   Extrapolate,
+  Extrapolation,
   interpolate,
   set,
   useAnimatedGestureHandler,
@@ -24,13 +25,11 @@ const {height, width} = Dimensions.get('window');
 const MainApp = () => {
   const translateY = useSharedValue(0);
   const [containerHeight, setContainerHeight] = useState(height);
-  const TRESHOLD = containerHeight - 2 * height;
+  const TRESHOLD = containerHeight - 2 * height + 60;
 
   const clampTranslateY = useDerivedValue(() => {
-    return Math.max(Math.min(translateY.value, 100), parseFloat(-TRESHOLD));
+    return Math.max(Math.min(translateY.value, 0), -TRESHOLD);
   });
-
-  // console.log('clampTranslateY', clampTranslateY?.value);
 
   const onGestureEvent = useAnimatedGestureHandler({
     onStart: (event, ctx) => {
@@ -38,54 +37,89 @@ const MainApp = () => {
       cancelAnimation(translateY.value);
     },
     onActive: (event, ctx) => {
-      if (ctx.startY + event.translationY < 100) {
+      if (event.translationY < 0 || event.translationY > 0) {
         translateY.value = ctx.startY + event.translationY;
       }
-      // console.log('active', ctx.startY + event.translationY);
     },
     onEnd: (event, ctx) => {
-      console.log('onend', event.y);
-      if (event.y < 580) {
+      if (event.translationY < 0 || event.translationY > 0) {
         translateY.value = withDecay({velocity: event.velocityY});
-      } else {
+      }
+    },
+    onFinish: (event, ctx) => {
+      if (translateY.value > 30) {
         translateY.value = withDelay(3000, withSpring(0));
       }
     },
-    // onFinish: (event, _) => {
-    //   console.log('e', event.y);
-    //   console.log('e translatey', event.translationY);
-    // },
   });
-
-  // console.log('containerHeight', -(containerHeight - 2 * height));
 
   const animatedContainerStyle = useAnimatedStyle(() => {
     const translationY = interpolate(
-      translateY.value,
+      clampTranslateY.value,
       [0, -TRESHOLD],
       [0, -TRESHOLD],
-      {
-        extrapolateLeft: Extrapolate.EXTEND,
-        extrapolateRight: Extrapolate.CLAMP,
-      },
+      Extrapolate.CLAMP,
     );
 
     return {
       transform: [{translateY: translationY}],
     };
   });
+  const animatedRefreshContainer = useAnimatedStyle(() => {
+    const height = interpolate(
+      translateY.value,
+      [0, 130],
+      [0, 130],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      height,
+    };
+  });
+
+  const animatedHeaderContainer = useAnimatedStyle(() => {
+    const elevation = interpolate(
+      clampTranslateY.value,
+      [0, -50],
+      [0, 5],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      elevation,
+    };
+  });
 
   return (
     <View>
-      <View
-        style={{
-          height: 130,
-          backgroundColor: 'red',
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: 0,
-        }}
+      <Animated.View
+        style={[
+          animatedHeaderContainer,
+          {
+            height: 60,
+            backgroundColor: 'white',
+            zIndex: 10,
+            elevation: 5,
+            justifyContent: 'center',
+            padding: 20,
+          },
+        ]}>
+        <Text
+          style={{
+            height: 30,
+            fontSize: 20,
+          }}>
+          Instagram
+        </Text>
+      </Animated.View>
+      <Animated.View
+        style={[
+          // animatedRefreshContainer,
+          {
+            backgroundColor: 'red',
+          },
+        ]}
       />
       <PanGestureHandler onGestureEvent={onGestureEvent}>
         <Animated.View
@@ -103,10 +137,14 @@ const MainApp = () => {
                           parseFloat(e?.nativeEvent?.layout?.height),
                       );
                     }
+                  }}
+                  style={{
+                    height: 50,
+                    backgroundColor: 'white',
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: 'grey',
                   }}>
-                  <Text style={{height: 50, backgroundColor: 'green'}}>
-                    {i}
-                  </Text>
+                  <Text>{i}</Text>
                 </View>
               );
             })}
